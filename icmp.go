@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"sync"
 	"time"
@@ -41,7 +42,7 @@ func getICMPSequence() uint16 {
 	return icmpSequence
 }
 
-func probeICMP(target string, w http.ResponseWriter, module Module) (success bool) {
+func probeICMP(target string, w http.ResponseWriter, module Module, params ...url.Values) (success bool) {
 	var (
 		socket           *icmp.PacketConn
 		requestType      icmp.Type

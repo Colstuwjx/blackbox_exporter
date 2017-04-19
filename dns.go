@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"regexp"
 
 	"github.com/miekg/dns"
@@ -81,7 +82,7 @@ func validRcode(rcode int, valid []string) bool {
 	return false
 }
 
-func probeDNS(target string, w http.ResponseWriter, module Module) bool {
+func probeDNS(target string, w http.ResponseWriter, module Module, params ...url.Values) bool {
 	var numAnswer, numAuthority, numAdditional int
 	var dialProtocol, fallbackProtocol string
 	defer func() {

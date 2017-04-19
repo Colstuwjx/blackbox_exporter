@@ -56,7 +56,7 @@ func matchRegularExpressions(reader io.Reader, config HTTPProbe) bool {
 	return true
 }
 
-func probeHTTP(target string, w http.ResponseWriter, module Module) (success bool) {
+func probeHTTP(target string, w http.ResponseWriter, module Module, params ...url.Values) (success bool) {
 	var isSSL, redirects int
 	var dialProtocol, fallbackProtocol string
 
