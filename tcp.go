@@ -19,13 +19,14 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"regexp"
 	"time"
 
 	"github.com/prometheus/common/log"
 )
 
-func dialTCP(target string, w http.ResponseWriter, module Module) (net.Conn, error) {
+func dialTCP(target string, w http.ResponseWriter, module Module, params ...url.Values) (net.Conn, error) {
 	var dialProtocol, fallbackProtocol string
 
 	dialer := &net.Dialer{Timeout: module.Timeout}
@@ -75,7 +76,7 @@ func dialTCP(target string, w http.ResponseWriter, module Module) (net.Conn, err
 	return tls.DialWithDialer(dialer, dialProtocol, target, config)
 }
 
-func probeTCP(target string, w http.ResponseWriter, module Module) bool {
+func probeTCP(target string, w http.ResponseWriter, module Module, params ...url.Values) bool {
 	deadline := time.Now().Add(module.Timeout)
 	conn, err := dialTCP(target, w, module)
 	if err != nil {
