@@ -131,6 +131,13 @@ func (sc *SafeConfig) reloadConfig(confFile string) (err error) {
 }
 
 func probeHandler(w http.ResponseWriter, r *http.Request, conf *Config) {
+	// NOTE: param values fmt:
+	// target: 127.0.0.1:8080 `value`;
+	// valid_status_codes: 200 300 `slice`, just be the http param list
+	// headers: Content-Type||application/json... `map`, split with '||'
+	// http://127.0.0.1:9115/probe?target=www.baidu.com&module=http_2xx&valid_status_codes=300&valid_status_codes=400
+	// http: //127.0.0.1:9115/probe?target=www.baidu.com&module=http_2xx&headers=Content-Type||application/json&headers=Content-Type||application/json
+
 	params := r.URL.Query()
 	target := params.Get("target")
 	if target == "" {
