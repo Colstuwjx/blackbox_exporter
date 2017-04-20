@@ -29,7 +29,8 @@ import (
 )
 
 const (
-	CUSTOM_HEADER_SPLIT = "||"
+	CUSTOM_HEADER_SPLIT             = "||"
+	CUSTOM_RANGE_STATUS_CODES_SPLIT = "-"
 )
 
 func matchRegularExpressions(reader io.Reader, config HTTPProbe) bool {
@@ -61,10 +62,37 @@ func matchRegularExpressions(reader io.Reader, config HTTPProbe) bool {
 	return true
 }
 
+func matchRangeStatusCodes(respCode int, validRangeStatusCode string) bool {
+	range_status_codes := strings.Split(validRangeStatusCode, CUSTOM_RANGE_STATUS_CODES_SPLIT)
+	if len(range_status_codes) == 2 && len(range_status_codes[0]) > 0 && len(range_status_codes[1]) > 0 {
+		start_valid_range_status_code, err := strconv.Atoi(range_status_codes[0])
+		if err != nil {
+			log.Errorf("Could not parse valid_range_status_codes to int: %s", err)
+			return false
+		}
+
+		end_valid_range_status_code, err := strconv.Atoi(range_status_codes[1])
+		if err != nil {
+			log.Errorf("Could not parse valid_range_status_codes to int: %s", err)
+			return false
+		}
+
+		if respCode >= start_valid_range_status_code && respCode <= end_valid_range_status_code {
+			return true
+		} else {
+			return false
+		}
+	} else {
+		log.Errorf("Could not parse valid_range_status_codes: %s", validRangeStatusCode)
+		return false
+	}
+}
+
 func loadCustomHTTPConfig(cfg *HTTPProbe, targetParams ...url.Values) (success bool) {
 	// overwrite cfg params
 	var (
 		customValidStatusCodes       = []int{}
+		customValidRangeStatusCodes  = []string{}
 		customFailIfMatchesRegexp    = []string{}
 		customFailIfNotMatchesRegexp = []string{}
 		customBody                   = ""
@@ -94,6 +122,14 @@ func loadCustomHTTPConfig(cfg *HTTPProbe, targetParams ...url.Values) (success b
 
 	if len(customValidStatusCodes) > 0 {
 		cfg.ValidStatusCodes = customValidStatusCodes
+	}
+
+	for _, targetValidRangeStatusCodesParam := range targetParams[0]["valid_range_status_codes"] {
+		customValidRangeStatusCodes = append(customValidRangeStatusCodes, targetValidRangeStatusCodesParam)
+	}
+
+	if len(customValidRangeStatusCodes) > 0 {
+		cfg.ValidRangeStatusCodes = customValidRangeStatusCodes
 	}
 
 	for _, targetFailIfMatchesRegexpParam := range targetParams[0]["fail_if_matches_regexp"] {
@@ -236,11 +272,21 @@ func probeHTTP(target string, w http.ResponseWriter, module Module, params ...ur
 		log.Warnf("Error for HTTP request to %s: %s", target, err)
 	} else {
 		defer resp.Body.Close()
+
 		if len(config.ValidStatusCodes) != 0 {
 			for _, code := range config.ValidStatusCodes {
 				if resp.StatusCode == code {
 					success = true
 					break
+				}
+			}
+
+			if !success {
+				for _, rangeCode := range config.ValidRangeStatusCodes {
+					if matchRangeStatusCodes(resp.StatusCode, rangeCode) {
+						success = true
+						break
+					}
 				}
 			}
 		} else if 200 <= resp.StatusCode && resp.StatusCode < 300 {
