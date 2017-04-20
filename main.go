@@ -54,6 +54,7 @@ type Module struct {
 type HTTPProbe struct {
 	// Defaults to 2xx.
 	ValidStatusCodes       []int             `yaml:"valid_status_codes"`
+	ValidRangeStatusCodes  []string          `yaml:"valid_range_status_codes"`
 	NoFollowRedirects      bool              `yaml:"no_follow_redirects"`
 	FailIfSSL              bool              `yaml:"fail_if_ssl"`
 	FailIfNotSSL           bool              `yaml:"fail_if_not_ssl"`
@@ -137,6 +138,7 @@ func probeHandler(w http.ResponseWriter, r *http.Request, conf *Config) {
 	// headers: Content-Type||application/json... `map`, split with '||'
 	// http://127.0.0.1:9115/probe?target=www.baidu.com&module=http_2xx&valid_status_codes=300&valid_status_codes=400
 	// http: //127.0.0.1:9115/probe?target=www.baidu.com&module=http_2xx&headers=Content-Type||application/json&headers=Content-Type||application/json
+	// http: //127.0.0.1:9115/probe?target=www.baidu.com&module=http_2xx&valid_status_codes=300&valid_range_status_codes=200-300
 
 	params := r.URL.Query()
 	target := params.Get("target")
