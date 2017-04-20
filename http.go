@@ -22,9 +22,14 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/prometheus/common/log"
+)
+
+const (
+	CUSTOM_HEADER_SPLIT = "||"
 )
 
 func matchRegularExpressions(reader io.Reader, config HTTPProbe) bool {
@@ -56,11 +61,76 @@ func matchRegularExpressions(reader io.Reader, config HTTPProbe) bool {
 	return true
 }
 
+func loadCustomHTTPConfig(cfg *HTTPProbe, targetParams ...url.Values) (success bool) {
+	// overwrite cfg params
+	var (
+		customValidStatusCodes       = []int{}
+		customFailIfMatchesRegexp    = []string{}
+		customFailIfNotMatchesRegexp = []string{}
+		customBody                   = ""
+	)
+
+	for _, targetHeadersParam := range targetParams[0]["headers"] {
+		header := strings.Split(targetHeadersParam, CUSTOM_HEADER_SPLIT)
+		if len(header) == 2 && len(header[0]) > 0 && len(header[1]) > 0 {
+			if cfg.Headers == nil {
+				cfg.Headers = make(map[string]string, 10)
+			}
+			cfg.Headers[header[0]] = header[1]
+		} else {
+			log.Errorf("Could not parse headers: %s", targetHeadersParam)
+			return false
+		}
+	}
+
+	for _, targetValidStatusCodesParam := range targetParams[0]["valid_status_codes"] {
+		valid_status_code, err := strconv.Atoi(targetValidStatusCodesParam)
+		if err != nil {
+			log.Errorf("Could not parse valid_status_codes to int: %s", err)
+			return false
+		}
+		customValidStatusCodes = append(customValidStatusCodes, valid_status_code)
+	}
+
+	if len(customValidStatusCodes) > 0 {
+		cfg.ValidStatusCodes = customValidStatusCodes
+	}
+
+	for _, targetFailIfMatchesRegexpParam := range targetParams[0]["fail_if_matches_regexp"] {
+		customFailIfMatchesRegexp = append(customFailIfMatchesRegexp, targetFailIfMatchesRegexpParam)
+	}
+
+	if len(customFailIfMatchesRegexp) > 0 {
+		cfg.FailIfMatchesRegexp = customFailIfMatchesRegexp
+	}
+
+	for _, targetFailIfNotMatchesRegexpParam := range targetParams[0]["fail_if_not_matches_regexp"] {
+		customFailIfNotMatchesRegexp = append(customFailIfMatchesRegexp, targetFailIfNotMatchesRegexpParam)
+	}
+
+	if len(customFailIfNotMatchesRegexp) > 0 {
+		cfg.FailIfNotMatchesRegexp = customFailIfNotMatchesRegexp
+	}
+
+	customBody = targetParams[0].Get("body")
+	if customBody != "" {
+		cfg.Body = customBody
+	}
+
+	return true
+}
+
 func probeHTTP(target string, w http.ResponseWriter, module Module, params ...url.Values) (success bool) {
 	var isSSL, redirects int
 	var dialProtocol, fallbackProtocol string
 
 	config := module.HTTP
+	if params != nil {
+		if ok := loadCustomHTTPConfig(&config, params...); !ok {
+			log.Errorf("Failed loading custom http config for target %s")
+			return false
+		}
+	}
 
 	if module.HTTP.Protocol == "" {
 		module.HTTP.Protocol = "tcp"
